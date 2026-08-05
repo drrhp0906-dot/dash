@@ -1,0 +1,108 @@
+# ─────────────────────────────────────────────────────────────────────
+# MedRev Dashboard — .gitignore
+# Standard web-project ignore file. Add anything you don't want in the
+# repository (OS junk, editor config, build artefacts, secrets).
+# ─────────────────────────────────────────────────────────────────────
+
+# ── OS-generated files ───────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# ── Editor / IDE configuration ───────────────────────────────────────
+.vscode/
+!.vscode/extensions.json    # allow recommending shared extensions
+!.vscode/settings.json      # if you want shared editor settings
+.idea/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+*.swp
+*.swo
+*~
+.netrwhist
+
+# ── Logs ─────────────────────────────────────────────────────────────
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ── Node / npm (in case tooling is added later) ──────────────────────
+node_modules/
+.pnp
+.pnp.js
+.package-lock.json
+npm-shrinkwrap.json
+
+# ── Build / dist (this project is single-file, but future-proof) ────
+dist/
+build/
+out/
+.cache/
+.parcel-cache/
+.next/
+.nuxt/
+.vite/
+.turbo/
+
+# ── Environment / secrets ────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*.crt
+secrets.json
+config/local.json
+
+# ── Testing / coverage ───────────────────────────────────────────────
+coverage/
+.nyc_output/
+*.lcov
+.pytest_cache/
+htmlcov/
+
+# ── Dependency directories (other ecosystems) ────────────────────────
+vendor/
+bower_components/
+jspm_packages/
+
+# ── Misc project junk ────────────────────────────────────────────────
+*.bak
+*.tmp
+*.temp
+*.orig
+*.rej
+*.zip
+*.tar.gz
+*.7z
+*.rar
+
+# ── Medical content — large source files (kept out of git) ──────────
+# Original PDF circulars and OCR intermediates should not be committed
+# — they bloat the repo. Keep them in a separate cloud drive.
+*.pdf
+ocr_text/
+pdf_pages/
+
+# ── LocalStorage export / backup files (if you add an export feature) ─
+*.medrev-backup
+*.medrev-export
+
+# ── OS-specific junk we missed above ─────────────────────────────────
+.directory
+.Trash-*
+.fseventsd
