@@ -4382,6 +4382,7 @@
       theme:       "medrev:theme",
       qStatus:     "medrev:qStatus",     // { [questionId]: "To-Do" | "In Progress" | "Revised" }
       quests:      "medrev:quests",      // { [questId]: true }
+      dailyQuest:  "medrev:dailyQuest",  // { date: "YYYY-MM-DD", target: N, questionIds: [...] }
       lastView:    "medrev:lastView"
     };
 
@@ -4418,6 +4419,130 @@
       const map = loadJSON(LS_KEYS.quests, {});
       map[questId] = done;
       saveJSON(LS_KEYS.quests, map);
+    }
+
+    /* =====================================================================
+       DAILY QUEST SYSTEM
+       ---------------------------------------------------------------------
+       The Daily Quest auto-assigns a slice of unrevised questions to the
+       student every day, sized so that finishing the daily target every
+       day would land them exam-ready on the morning of Sept 7th 2026.
+
+       Design choices worth knowing:
+       • The quest is anchored to the *local* calendar date — so it resets
+         at midnight wherever the student is, not at UTC midnight. This
+         matters because an Indian student would otherwise see their quest
+         reshuffle at 5:30 AM IST, which feels broken.
+       • We pick the FIRST N unrevised questions (sequential, not random).
+         Sequential order groups nearby topics together (better for recall),
+         mirrors the natural Pathology→Micro→Pharma study order, and avoids
+         the “lucky dip” trap where a hard question keeps reappearing.
+       • Completion is derived from the existing qStatus map — we don’t
+         store a separate completedIds array. Single source of truth = no
+         sync bugs. If the student marks a question Revised from anywhere
+         else (sidebar, all-questions list), the daily quest reflects it.
+       ===================================================================== */
+
+    /**
+     * Returns today’s date as “YYYY-MM-DD” using the *local* clock.
+     * We deliberately avoid toISOString() because that converts to UTC
+     * and would shift the day boundary for non-UTC timezones.
+     */
+    function getTodayDateString() {
+      const d = new Date();
+      const yyyy = d.getFullYear();
+      const mm   = String(d.getMonth() + 1).padStart(2, '0');
+      const dd   = String(d.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    }
+
+    /**
+     * The math behind the daily target:
+     *   remaining_questions ÷ remaining_days → round UP.
+     *
+     * Why round up (Math.ceil) instead of round-to-nearest?
+     *   If 200 questions / 10 days = 20 exactly, no problem.
+     *   But 201 / 10 = 20.1 → 21 with ceil. The extra 1 question per day
+     *   buys a small buffer that compounds: by day 9 the student has
+     *   already finished 189 of 201 (94%), and the last day is light.
+     *   Rounding *down* would push unfinished work onto the day before
+     *   the exam — exactly when the student should be resting, not cramming.
+     *
+     * Edge case: if we’re inside an exam day or past the first exam,
+     * remainingDays floors at 1 so we don’t divide by zero.
+     */
+    function calculateDailyTarget() {
+      const statusMap = loadJSON(LS_KEYS.qStatus, {});
+      const remaining = flatQuestions.filter(
+        q => (statusMap[q.id] || STATUS.TODO) !== STATUS.REVISED
+      ).length;
+
+      // First exam in the schedule is our hard deadline.
+      const firstExam = new Date(EXAM_SCHEDULE[0].date);
+      const now = new Date();
+      const msPerDay = 24 * 60 * 60 * 1000;
+      const remainingDays = Math.max(1, Math.ceil((firstExam - now) / msPerDay));
+
+      const dailyTarget = remaining > 0 ? Math.ceil(remaining / remainingDays) : 0;
+      return { remaining, remainingDays, dailyTarget };
+    }
+
+    /**
+     * Build a fresh daily quest: pick the first N unrevised questions,
+     * stamp them with today’s date, persist to localStorage.
+     */
+    function assignDailyQuest() {
+      const today = getTodayDateString();
+      const { dailyTarget } = calculateDailyTarget();
+      const statusMap = loadJSON(LS_KEYS.qStatus, {});
+
+      // flatQuestions is already in subject → paper → section → question
+      // order, so slicing the first N unrevised gives us a contiguous,
+      // logically-grouped batch.
+      const unrevised = flatQuestions.filter(
+        q => (statusMap[q.id] || STATUS.TODO) !== STATUS.REVISED
+      );
+      const questionIds = unrevised.slice(0, dailyTarget).map(q => q.id);
+
+      const quest = {
+        date: today,
+        target: dailyTarget,
+        questionIds: questionIds
+      };
+      saveJSON(LS_KEYS.dailyQuest, quest);
+      return quest;
+    }
+
+    /**
+     * Returns today’s quest, assigning a new one if:
+     *   • no quest exists yet, OR
+     *   • the stored quest is from a previous day (date mismatch)
+     * The “date mismatch” check is what makes the quest reset at midnight
+     * without needing a timer or cron job — it’s evaluated lazily on read.
+     */
+    function getDailyQuest() {
+      const today = getTodayDateString();
+      const stored = loadJSON(LS_KEYS.dailyQuest, null);
+      if (stored && stored.date === today) return stored;
+      return assignDailyQuest();
+    }
+
+    /**
+     * Derives completion stats for today’s quest from the qStatus map.
+     * Returning isComplete separately saves the caller from re-checking.
+     */
+    function getQuestProgress() {
+      const quest = getDailyQuest();
+      if (!quest.questionIds.length) {
+        return { completed: 0, total: 0, pct: 100, isComplete: true };
+      }
+      const statusMap = loadJSON(LS_KEYS.qStatus, {});
+      const completed = quest.questionIds.filter(
+        qid => statusMap[qid] === STATUS.REVISED
+      ).length;
+      const total = quest.questionIds.length;
+      const pct = total ? Math.round((completed / total) * 100) : 100;
+      return { completed, total, pct, isComplete: completed >= total };
     }
 
     /* =====================================================================
@@ -4671,6 +4796,8 @@
       main.innerHTML = `
         <div class="space-y-6">
 
+          ${renderDailyQuestCard()}
+
           <!-- Hero -->
           <div class="rounded-2xl p-6 bg-gradient-to-br from-brand-600 via-brand-700 to-indigo-800 text-white shadow-lg relative overflow-hidden">
             <div class="absolute -right-8 -top-8 w-40 h-40 rounded-full bg-white/10 blur-xl"></div>
@@ -4796,6 +4923,152 @@
       `;
       // Re-bind nav-top buttons (rendered inside HTML strings)
       bindNavTop();
+      // Wire up the Daily Quest “Mark Revised” buttons.
+      bindDailyQuestCard();
+    }
+
+    /* =====================================================================
+       DAILY QUEST UI — renders the prominent indigo/purple card at the
+       very top of the Stats Dashboard. Kept visually distinct from the
+       blue stat tiles below so the student instantly recognises it as
+       “today’s action item” rather than “another statistic”.
+       ===================================================================== */
+    function renderDailyQuestCard() {
+      const { remaining, remainingDays, dailyTarget } = calculateDailyTarget();
+      const quest = getDailyQuest();
+      const { completed, total, pct, isComplete } = getQuestProgress();
+      const statusMap = loadJSON(LS_KEYS.qStatus, {});
+
+      // ── All-caught-up state: no questions left to revise ──────────────
+      if (dailyTarget === 0 || remaining === 0) {
+        return `
+          <div class="rounded-2xl p-6 bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-700 text-white shadow-xl relative overflow-hidden">
+            <div class="absolute -right-8 -top-8 w-40 h-40 rounded-full bg-white/10 blur-xl"></div>
+            <div class="relative flex items-center gap-4">
+              <div class="text-4xl">🏆</div>
+              <div>
+                <h2 class="text-xl font-extrabold">All caught up!</h2>
+                <p class="opacity-90 text-sm mt-1">Every question is revised — you’re exam-ready. Take a breath, you earned it. 🎉</p>
+              </div>
+            </div>
+          </div>`;
+      }
+
+      // ── Build the per-question rows ───────────────────────────────────
+      const questQuestions = quest.questionIds
+        .map(qid => flatQuestions.find(q => q.id === qid))
+        .filter(Boolean);
+
+      const listHtml = questQuestions.map(q => {
+        const st = statusMap[q.id] || STATUS.TODO;
+        const isRevised = st === STATUS.REVISED;
+        const marksColor = q.marks >= 15
+          ? 'bg-rose-400/30 text-rose-100'
+          : q.marks >= 6
+            ? 'bg-amber-400/30 text-amber-100'
+            : q.marks >= 4
+              ? 'bg-sky-400/30 text-sky-100'
+              : 'bg-slate-300/30 text-slate-100';
+        return `
+          <div class="flex items-start gap-3 p-2.5 rounded-lg ${isRevised ? 'bg-white/10 opacity-60' : 'bg-white/15 hover:bg-white/25'} transition-colors">
+            <div class="shrink-0 w-7 h-7 rounded flex items-center justify-center text-[10px] font-bold ${marksColor}">${q.marks}m</div>
+            <div class="flex-1 min-w-0">
+              <div class="text-[10px] uppercase tracking-wide opacity-70 font-mono">${q.subject} • ${q.paper}</div>
+              <div class="text-sm leading-snug ${isRevised ? 'line-through' : ''}">${escapeHtml(q.question)}</div>
+            </div>
+            ${isRevised
+              ? `<span class="shrink-0 text-xs font-semibold px-2 py-1 rounded bg-emerald-400/30 text-emerald-100">✓ Done</span>`
+              : `<button class="quest-mark-btn shrink-0 text-xs font-semibold px-2.5 py-1 rounded bg-white text-indigo-700 hover:bg-indigo-50 transition-colors shadow-sm" data-qid="${q.id}">Mark Revised</button>`
+            }
+          </div>`;
+      }).join('');
+
+      // ── Main card ─────────────────────────────────────────────────────
+      // Indigo→purple→fuchsia gradient deliberately diverges from the
+      // brand-blue used elsewhere so this card “pops” as the day’s focus.
+      return `
+        <div class="rounded-2xl p-5 sm:p-6 bg-gradient-to-br from-indigo-600 via-purple-600 to-fuchsia-600 text-white shadow-xl border border-indigo-400/30 relative overflow-hidden">
+          <div class="absolute -right-10 -top-10 w-48 h-48 rounded-full bg-white/10 blur-2xl"></div>
+          <div class="absolute -left-10 -bottom-10 w-40 h-40 rounded-full bg-fuchsia-400/20 blur-2xl"></div>
+
+          <div class="relative">
+            <!-- Header row -->
+            <div class="flex items-start justify-between gap-3 flex-wrap">
+              <div class="flex items-center gap-3">
+                <div class="text-3xl">🎯</div>
+                <div>
+                  <h2 class="text-lg sm:text-xl font-extrabold tracking-tight">Today’s Daily Quest</h2>
+                  <p class="text-xs opacity-90 mt-0.5">
+                    ${isComplete
+                      ? `Quest complete — see you tomorrow! 🌙`
+                      : `Daily Goal: Complete <strong>${total}</strong> question${total !== 1 ? 's' : ''} today`}
+                  </p>
+                </div>
+              </div>
+              <div class="text-right text-[11px] opacity-90 leading-tight">
+                <div class="font-mono text-base font-bold">${remaining}</div>
+                <div class="uppercase tracking-wide opacity-80">questions left</div>
+                <div class="font-mono mt-1">${remainingDays}d</div>
+                <div class="uppercase tracking-wide opacity-80">until exam</div>
+              </div>
+            </div>
+
+            ${isComplete
+              ? `<div class="mt-5 p-5 rounded-xl bg-white/15 backdrop-blur-sm text-center">
+                  <div class="text-3xl mb-2">🎉</div>
+                  <p class="font-bold text-lg">Quest Complete! Great job.</p>
+                  <p class="text-sm opacity-90 mt-1.5 max-w-md mx-auto">Check back tomorrow for your next batch. Rest well — consistency beats cramming every single time.</p>
+                </div>`
+              : `
+                <!-- Progress bar -->
+                <div class="mt-5">
+                  <div class="flex items-center justify-between text-xs mb-1.5">
+                    <span class="font-semibold">Today’s Progress</span>
+                    <span class="font-mono opacity-90">${completed} / ${total}  •  ${pct}%</span>
+                  </div>
+                  <div class="h-2.5 rounded-full bg-white/20 overflow-hidden">
+                    <div class="h-full bg-gradient-to-r from-emerald-300 to-emerald-400 transition-all duration-500" style="width:${pct}%"></div>
+                  </div>
+                </div>
+
+                <!-- Math explainer — shows the student exactly how the target was derived,
+                     so they understand why today’s number is what it is. -->
+                <p class="text-[11px] opacity-75 mt-2 italic">
+                  📐 ${remaining} unrevised ÷ ${remainingDays} days until exam = ${dailyTarget} questions/day (rounded up)
+                </p>
+
+                <!-- Quest question list -->
+                <div class="mt-4 space-y-1.5 max-h-80 overflow-y-auto scrollbar-thin pr-1">
+                  ${listHtml}
+                </div>
+              `
+            }
+          </div>
+        </div>`;
+    }
+
+    /**
+     * Wires up the “Mark Revised” buttons inside the Daily Quest card.
+     * We use explicit per-button binding rather than event delegation:
+     * with at most ~25 buttons per day the perf difference is invisible,
+     * and the code stays trivially debuggable.
+     */
+    function bindDailyQuestCard() {
+      document.querySelectorAll('.quest-mark-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const qid = btn.dataset.qid;
+          setQuestionStatus(qid, STATUS.REVISED);
+          // Re-render the entire stats view in one go. This is the simplest
+          // way to guarantee every dependent UI element — overall progress,
+          // subject-wise bars, the daily quest card itself — all stay in
+          // perfect sync with the new qStatus state. No stale UI possible.
+          renderStatsView();
+          // Also refresh the sidebar dot indicators so the green “revised”
+          // dot appears next to the question in the tree.
+          refreshSidebarTreeStatusIndicators();
+        });
+      });
     }
 
     /* =====================================================================
