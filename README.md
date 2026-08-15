@@ -55,6 +55,7 @@ Everything persists in `localStorage` — your progress survives page reloads, b
 ```
 medrev-dashboard/
 ├── index.html              ← the entire dashboard (single-file app)
+├── images/                 ← 143 medical images bundled locally
 ├── README.md               ← you are here
 ├── CONTRIBUTING.md         ← how to add answers, improve UI, extend the bank
 ├── LICENSE.md              ← MIT License
@@ -208,7 +209,7 @@ Image depth by subject:
 - **Microbiology** — 69 answers with images (Gram stains, culture plates, clinical photos, life-cycle diagrams)
 - **Pharmacology** — 38 answers with images (mechanism diagrams, receptor sites, clinical photos)
 
-Images are sourced from public medical education repositories (NUS Medicine, NIH/PMC, WebMD, Mayo Clinic, etc.) and re-hosted on a CDN for stable, embeddable URLs.
+Images are sourced from public medical education repositories (NUS Medicine, NIH/PMC, WebMD, Mayo Clinic, etc.) and bundled locally in the `images/` folder so the dashboard keeps working fully offline.
 
 ---
 
@@ -228,7 +229,7 @@ MIT — see [`LICENSE.md`](LICENSE.md).
 
 - **Question bank** — sourced from past papers of CUSMC, MORMED, MPSMC, PDUMC, SMCGH.
 - **Syllabus** — official university CBME Second MBBS curriculum circular.
-- **Diagrams** — Mermaid.js flowcharts (CDN) + 144 real medical images sourced from public medical education repositories and re-hosted on a stable CDN.
+- **Diagrams** — Mermaid.js flowcharts (CDN) + 144 real medical images sourced from public medical education repositories and bundled locally in `images/`.
 - **Built with** — Tailwind CSS, Mermaid.js, and a lot of coffee.
 
 ---
