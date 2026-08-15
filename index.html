@@ -5,17 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MedRev Dashboard — Second MBBS Revision Hub</title>
 
-  <!-- =====================================================================
-       MedRev Dashboard
-       Single-file study hub for Second MBBS (Pathology / Microbiology /
-       Pharmacology) — built with HTML + Tailwind CSS (CDN) + Mermaid.js
-       (CDN) + Vanilla JS + localStorage.
-       ===================================================================== -->
-
-  <!-- Tailwind CSS via CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
-    // Dark mode is class-based so we can persist it before paint.
+
     tailwind.config = {
       darkMode: 'class',
       theme: {
@@ -39,7 +31,6 @@
     }
   </script>
 
-  <!-- Prevent dark-mode flash on reload: read saved theme synchronously -->
   <script>
     (function () {
       try {
@@ -51,16 +42,14 @@
     })();
   </script>
 
-  <!-- Mermaid.js for SmartArt / flowcharts -->
   <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
 
-  <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
   <style>
-    /* Tiny bit of bespoke CSS that Tailwind alone can't do cleanly */
+
     .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
     .scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(100,116,139,0.4); border-radius: 3px; }
     .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
@@ -87,13 +76,9 @@
 
 <body class="bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-200 font-sans antialiased min-h-screen">
 
-  <!-- ============================================================
-       HEADER
-       ============================================================ -->
   <header class="sticky top-0 z-40 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 shadow-sm">
     <div class="flex items-center gap-3 px-3 sm:px-5 py-2.5">
 
-      <!-- Mobile sidebar toggle -->
       <button id="sidebarToggle"
               class="lg:hidden p-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300"
               aria-label="Toggle sidebar">
@@ -102,7 +87,6 @@
         </svg>
       </button>
 
-      <!-- Logo + title -->
       <div class="flex items-center gap-2 shrink-0">
         <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-brand-500 to-accent-500 flex items-center justify-center text-white font-extrabold text-lg shadow-sm">
           M
@@ -113,7 +97,6 @@
         </div>
       </div>
 
-      <!-- Search bar (global question search) -->
       <div class="flex-1 max-w-2xl mx-auto relative">
         <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 10a7 7 0 11-14 0 7 7 0 0114 0z"/>
@@ -125,12 +108,10 @@
         <div id="searchResultsCount" class="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-slate-400 hidden"></div>
       </div>
 
-      <!-- Exam Countdown -->
       <div id="examCountdown" class="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gradient-to-r from-rose-500 to-orange-500 text-white shadow-sm text-xs font-semibold">
-        <!-- filled in by JS -->
+
       </div>
 
-      <!-- Dark mode toggle -->
       <button id="darkModeToggle"
               class="p-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors"
               aria-label="Toggle dark mode">
@@ -143,19 +124,13 @@
       </button>
     </div>
 
-    <!-- Mobile countdown row (shown on small screens) -->
     <div id="examCountdownMobile" class="md:hidden px-3 pb-2"></div>
   </header>
 
-  <!-- ============================================================
-       LAYOUT — sidebar + main
-       ============================================================ -->
   <div class="flex relative">
 
-    <!-- Sidebar overlay (mobile) -->
     <div id="sidebarOverlay" class="fixed inset-0 bg-black/50 z-30 hidden lg:hidden"></div>
 
-    <!-- SIDEBAR -->
     <aside id="sidebar"
            class="fixed lg:sticky top-[57px] lg:top-[57px] lg:self-start z-30 lg:z-auto
                   h-[calc(100vh-57px)] w-72 shrink-0
@@ -165,7 +140,6 @@
 
       <nav class="p-3 space-y-1">
 
-        <!-- Top-level views -->
         <button data-view="stats"
                 class="nav-top w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -192,26 +166,17 @@
 
         <div class="my-3 border-t border-slate-200 dark:border-slate-800"></div>
 
-        <!-- Question bank accordion -->
         <div id="sidebarTree" class="space-y-1"></div>
       </nav>
     </aside>
 
-    <!-- MAIN CONTENT -->
     <main class="flex-1 min-w-0 min-h-[calc(100vh-57px)]">
       <div id="mainContent" class="p-4 sm:p-6 max-w-5xl mx-auto"></div>
     </main>
   </div>
 
-  <!-- ============================================================
-       JAVASCRIPT
-       ============================================================ -->
   <script>
-    /* =====================================================================
-       DATA LAYER
-       The questions & syllabus data are embedded here so the page is
-       fully self-contained and works from any offline folder.
-       ===================================================================== */
+
     const medicalQuestionsData = [
     {
       subject: "Pathology",
@@ -4364,9 +4329,6 @@
   }
 ];
 
-    /* =====================================================================
-       CONSTANTS
-       ===================================================================== */
     const STATUS = {
       TODO: "To-Do",
       IN_PROGRESS: "In Progress",
@@ -4380,15 +4342,12 @@
 
     const LS_KEYS = {
       theme:       "medrev:theme",
-      qStatus:     "medrev:qStatus",     // { [questionId]: "To-Do" | "In Progress" | "Revised" }
-      quests:      "medrev:quests",      // { [questId]: true }
-      dailyQuest:  "medrev:dailyQuest",  // { date: "YYYY-MM-DD", target: N, questionIds: [...] }
+      qStatus:     "medrev:qStatus",
+      quests:      "medrev:quests",
+      dailyQuest:  "medrev:dailyQuest",
       lastView:    "medrev:lastView"
     };
 
-    /* =====================================================================
-       STATE HELPERS — read/write localStorage safely
-       ===================================================================== */
     function loadJSON(key, fallback) {
       try {
         const raw = localStorage.getItem(key);
@@ -4421,33 +4380,6 @@
       saveJSON(LS_KEYS.quests, map);
     }
 
-    /* =====================================================================
-       DAILY QUEST SYSTEM
-       ---------------------------------------------------------------------
-       The Daily Quest auto-assigns a slice of unrevised questions to the
-       student every day, sized so that finishing the daily target every
-       day would land them exam-ready on the morning of Sept 7th 2026.
-
-       Design choices worth knowing:
-       • The quest is anchored to the *local* calendar date — so it resets
-         at midnight wherever the student is, not at UTC midnight. This
-         matters because an Indian student would otherwise see their quest
-         reshuffle at 5:30 AM IST, which feels broken.
-       • We pick the FIRST N unrevised questions (sequential, not random).
-         Sequential order groups nearby topics together (better for recall),
-         mirrors the natural Pathology→Micro→Pharma study order, and avoids
-         the “lucky dip” trap where a hard question keeps reappearing.
-       • Completion is derived from the existing qStatus map — we don’t
-         store a separate completedIds array. Single source of truth = no
-         sync bugs. If the student marks a question Revised from anywhere
-         else (sidebar, all-questions list), the daily quest reflects it.
-       ===================================================================== */
-
-    /**
-     * Returns today’s date as “YYYY-MM-DD” using the *local* clock.
-     * We deliberately avoid toISOString() because that converts to UTC
-     * and would shift the day boundary for non-UTC timezones.
-     */
     function getTodayDateString() {
       const d = new Date();
       const yyyy = d.getFullYear();
@@ -4456,28 +4388,12 @@
       return `${yyyy}-${mm}-${dd}`;
     }
 
-    /**
-     * The math behind the daily target:
-     *   remaining_questions ÷ remaining_days → round UP.
-     *
-     * Why round up (Math.ceil) instead of round-to-nearest?
-     *   If 200 questions / 10 days = 20 exactly, no problem.
-     *   But 201 / 10 = 20.1 → 21 with ceil. The extra 1 question per day
-     *   buys a small buffer that compounds: by day 9 the student has
-     *   already finished 189 of 201 (94%), and the last day is light.
-     *   Rounding *down* would push unfinished work onto the day before
-     *   the exam — exactly when the student should be resting, not cramming.
-     *
-     * Edge case: if we’re inside an exam day or past the first exam,
-     * remainingDays floors at 1 so we don’t divide by zero.
-     */
     function calculateDailyTarget() {
       const statusMap = loadJSON(LS_KEYS.qStatus, {});
       const remaining = flatQuestions.filter(
         q => (statusMap[q.id] || STATUS.TODO) !== STATUS.REVISED
       ).length;
 
-      // First exam in the schedule is our hard deadline.
       const firstExam = new Date(EXAM_SCHEDULE[0].date);
       const now = new Date();
       const msPerDay = 24 * 60 * 60 * 1000;
@@ -4487,18 +4403,11 @@
       return { remaining, remainingDays, dailyTarget };
     }
 
-    /**
-     * Build a fresh daily quest: pick the first N unrevised questions,
-     * stamp them with today’s date, persist to localStorage.
-     */
     function assignDailyQuest() {
       const today = getTodayDateString();
       const { dailyTarget } = calculateDailyTarget();
       const statusMap = loadJSON(LS_KEYS.qStatus, {});
 
-      // flatQuestions is already in subject → paper → section → question
-      // order, so slicing the first N unrevised gives us a contiguous,
-      // logically-grouped batch.
       const unrevised = flatQuestions.filter(
         q => (statusMap[q.id] || STATUS.TODO) !== STATUS.REVISED
       );
@@ -4513,13 +4422,6 @@
       return quest;
     }
 
-    /**
-     * Returns today’s quest, assigning a new one if:
-     *   • no quest exists yet, OR
-     *   • the stored quest is from a previous day (date mismatch)
-     * The “date mismatch” check is what makes the quest reset at midnight
-     * without needing a timer or cron job — it’s evaluated lazily on read.
-     */
     function getDailyQuest() {
       const today = getTodayDateString();
       const stored = loadJSON(LS_KEYS.dailyQuest, null);
@@ -4527,10 +4429,6 @@
       return assignDailyQuest();
     }
 
-    /**
-     * Derives completion stats for today’s quest from the qStatus map.
-     * Returning isComplete separately saves the caller from re-checking.
-     */
     function getQuestProgress() {
       const quest = getDailyQuest();
       if (!quest.questionIds.length) {
@@ -4545,11 +4443,6 @@
       return { completed, total, pct, isComplete: completed >= total };
     }
 
-    /* =====================================================================
-       FLATTENED QUESTION INDEX
-       We flatten the nested data into a single array with back-references
-       so search & stats are O(N) and trivially correct.
-       ===================================================================== */
     const flatQuestions = [];
     medicalQuestionsData.forEach((subj, si) => {
       subj.papers.forEach((paper, pi) => {
@@ -4568,21 +4461,15 @@
     });
     const TOTAL_QUESTIONS = flatQuestions.length;
 
-    /* =====================================================================
-       EXAM COUNTDOWN
-       Picks the next upcoming exam from EXAM_SCHEDULE and ticks every
-       second. If we are inside an exam window (start..start+3h), show
-       "Exam in Progress" instead of a countdown.
-       ===================================================================== */
     function pickNextExam(now) {
       const nowMs = now.getTime();
       for (const ex of EXAM_SCHEDULE) {
         const start = new Date(ex.date).getTime();
-        const end   = start + 3 * 60 * 60 * 1000; // 9:30 → 12:30 exam window
+        const end   = start + 3 * 60 * 60 * 1000;
         if (nowMs < start) return { ...ex, start, end, state: "upcoming" };
         if (nowMs >= start && nowMs < end) return { ...ex, start, end, state: "in-progress" };
       }
-      // All exams done
+
       return null;
     }
     function renderExamCountdown() {
@@ -4630,12 +4517,6 @@
       targetEls.forEach(el => el && (el.innerHTML = html));
     }
 
-    /* =====================================================================
-       SIDEBAR ACCORDION TREE
-       Built once on load. Each level toggles its child via a `data-open`
-       attribute on a parent wrapper — simpler & more reliable than
-       manipulating CSS classes by hand.
-       ===================================================================== */
     function buildSidebarTree() {
       const root = document.getElementById('sidebarTree');
       const frag = document.createDocumentFragment();
@@ -4666,7 +4547,6 @@
           subjEl.querySelector('.chevron').classList.toggle('rotate-90');
         });
 
-        // Papers
         subj.papers.forEach((paper, pi) => {
           const paperCount = paper.sections.reduce((a, s) => a + s.questions.length, 0);
           const paperEl = document.createElement('div');
@@ -4690,7 +4570,6 @@
             paperEl.querySelector('.chevron').classList.toggle('rotate-90');
           });
 
-          // Sections
           paper.sections.forEach((sec, sci) => {
             const secEl = document.createElement('div');
             secEl.className = 'rounded-md overflow-hidden';
@@ -4713,7 +4592,6 @@
               secEl.querySelector('.chevron').classList.toggle('rotate-90');
             });
 
-            // Questions
             sec.questions.forEach((q, qi) => {
               const status = getQuestionStatus(q.id);
               const qEl = document.createElement('button');
@@ -4723,7 +4601,7 @@
                 <span class="line-clamp-2">${qi+1}. ${escapeHtml(q.question)}</span>`;
               qEl.addEventListener('click', () => {
                 renderQuestionDetail(q);
-                // On mobile, close the sidebar after a selection
+
                 if (window.innerWidth < 1024) closeSidebar();
               });
               secKids.appendChild(qEl);
@@ -4738,14 +4616,10 @@
       root.appendChild(frag);
     }
 
-    /* =====================================================================
-       STATS & REVISION DASHBOARD  (default view)
-       ===================================================================== */
     function renderStatsView() {
       const main = document.getElementById('mainContent');
       const statusMap = loadJSON(LS_KEYS.qStatus, {});
 
-      // Overall stats
       let revised = 0, inProg = 0, todo = 0;
       flatQuestions.forEach(q => {
         const s = statusMap[q.id] || STATUS.TODO;
@@ -4755,7 +4629,6 @@
       });
       const pctOverall = TOTAL_QUESTIONS ? Math.round((revised / TOTAL_QUESTIONS) * 100) : 0;
 
-      // Subject-wise stats
       const subjStats = medicalQuestionsData.map(subj => {
         let sTotal = 0, sRevised = 0, sInProg = 0;
         subj.papers.forEach(p => p.sections.forEach(s => s.questions.forEach(q => {
@@ -4773,7 +4646,6 @@
         };
       });
 
-      // Syllabus quest stats
       let qTotal = 0, qDone = 0;
       syllabusQuestData.forEach(subj => subj.papers.forEach(p => {
         p.topics.forEach((t, ti) => {
@@ -4783,10 +4655,8 @@
       }));
       const qPct = qTotal ? Math.round((qDone / qTotal) * 100) : 0;
 
-      // Next exam
       const next = pickNextExam(new Date());
 
-      // Subject colour mapping for cards
       const subjColor = {
         "Pathology":     "from-rose-500 to-pink-600",
         "Microbiology":  "from-emerald-500 to-teal-600",
@@ -4921,25 +4791,18 @@
 
         </div>
       `;
-      // Re-bind nav-top buttons (rendered inside HTML strings)
+
       bindNavTop();
-      // Wire up the Daily Quest “Mark Revised” buttons.
+
       bindDailyQuestCard();
     }
 
-    /* =====================================================================
-       DAILY QUEST UI — renders the prominent indigo/purple card at the
-       very top of the Stats Dashboard. Kept visually distinct from the
-       blue stat tiles below so the student instantly recognises it as
-       “today’s action item” rather than “another statistic”.
-       ===================================================================== */
     function renderDailyQuestCard() {
       const { remaining, remainingDays, dailyTarget } = calculateDailyTarget();
       const quest = getDailyQuest();
       const { completed, total, pct, isComplete } = getQuestProgress();
       const statusMap = loadJSON(LS_KEYS.qStatus, {});
 
-      // ── All-caught-up state: no questions left to revise ──────────────
       if (dailyTarget === 0 || remaining === 0) {
         return `
           <div class="rounded-2xl p-6 bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-700 text-white shadow-xl relative overflow-hidden">
@@ -4954,7 +4817,6 @@
           </div>`;
       }
 
-      // ── Build the per-question rows ───────────────────────────────────
       const questQuestions = quest.questionIds
         .map(qid => flatQuestions.find(q => q.id === qid))
         .filter(Boolean);
@@ -4983,9 +4845,6 @@
           </div>`;
       }).join('');
 
-      // ── Main card ─────────────────────────────────────────────────────
-      // Indigo→purple→fuchsia gradient deliberately diverges from the
-      // brand-blue used elsewhere so this card “pops” as the day’s focus.
       return `
         <div class="rounded-2xl p-5 sm:p-6 bg-gradient-to-br from-indigo-600 via-purple-600 to-fuchsia-600 text-white shadow-xl border border-indigo-400/30 relative overflow-hidden">
           <div class="absolute -right-10 -top-10 w-48 h-48 rounded-full bg-white/10 blur-2xl"></div>
@@ -5020,7 +4879,7 @@
                   <p class="text-sm opacity-90 mt-1.5 max-w-md mx-auto">Check back tomorrow for your next batch. Rest well — consistency beats cramming every single time.</p>
                 </div>`
               : `
-                <!-- Progress bar -->
+
                 <div class="mt-5">
                   <div class="flex items-center justify-between text-xs mb-1.5">
                     <span class="font-semibold">Today’s Progress</span>
@@ -5031,13 +4890,10 @@
                   </div>
                 </div>
 
-                <!-- Math explainer — shows the student exactly how the target was derived,
-                     so they understand why today’s number is what it is. -->
                 <p class="text-[11px] opacity-75 mt-2 italic">
                   📐 ${remaining} unrevised ÷ ${remainingDays} days until exam = ${dailyTarget} questions/day (rounded up)
                 </p>
 
-                <!-- Quest question list -->
                 <div class="mt-4 space-y-1.5 max-h-80 overflow-y-auto scrollbar-thin pr-1">
                   ${listHtml}
                 </div>
@@ -5047,33 +4903,20 @@
         </div>`;
     }
 
-    /**
-     * Wires up the “Mark Revised” buttons inside the Daily Quest card.
-     * We use explicit per-button binding rather than event delegation:
-     * with at most ~25 buttons per day the perf difference is invisible,
-     * and the code stays trivially debuggable.
-     */
     function bindDailyQuestCard() {
       document.querySelectorAll('.quest-mark-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
           e.stopPropagation();
           const qid = btn.dataset.qid;
           setQuestionStatus(qid, STATUS.REVISED);
-          // Re-render the entire stats view in one go. This is the simplest
-          // way to guarantee every dependent UI element — overall progress,
-          // subject-wise bars, the daily quest card itself — all stay in
-          // perfect sync with the new qStatus state. No stale UI possible.
+
           renderStatsView();
-          // Also refresh the sidebar dot indicators so the green “revised”
-          // dot appears next to the question in the tree.
+
           refreshSidebarTreeStatusIndicators();
         });
       });
     }
 
-    /* =====================================================================
-       SYLLABUS QUESTS VIEW
-       ===================================================================== */
     function renderQuestsView() {
       const main = document.getElementById('mainContent');
 
@@ -5164,20 +5007,16 @@
         </div>
       `;
 
-      // Wire up the checkboxes
       main.querySelectorAll('input[data-quest-id]').forEach(cb => {
         cb.addEventListener('change', e => {
           const id = e.target.dataset.questId;
           setQuestDone(id, e.target.checked);
-          // Re-render to update progress bars (cheap and correct)
+
           renderQuestsView();
         });
       });
     }
 
-    /* =====================================================================
-       ALL QUESTIONS VIEW (filterable list)
-       ===================================================================== */
     let currentSearchQuery = "";
     function renderAllQuestionsView(filterFn) {
       const main = document.getElementById('mainContent');
@@ -5243,7 +5082,6 @@
         </div>
       `;
 
-      // Bind card clicks
       main.querySelectorAll('.q-card').forEach(card => {
         card.addEventListener('click', () => {
           const qid = card.dataset.qid;
@@ -5254,9 +5092,6 @@
       bindNavTop();
     }
 
-    /* =====================================================================
-       QUESTION DETAIL VIEW (with Print / Save-as-PDF)
-       ===================================================================== */
     function renderQuestionDetail(q) {
       const main = document.getElementById('mainContent');
       const status = getQuestionStatus(q.id);
@@ -5331,25 +5166,21 @@
         </div>
       `;
 
-      // Wire up back button
       document.getElementById('backBtn').addEventListener('click', () => {
         const last = loadJSON(LS_KEYS.lastView, { view: 'stats' });
         navigateTo(last.view || 'stats');
       });
 
-      // Wire up status buttons
       main.querySelectorAll('.status-btn').forEach(btn => {
         btn.addEventListener('click', () => {
           setQuestionStatus(q.id, btn.dataset.status);
-          renderQuestionDetail(q);  // re-render to reflect new status
+          renderQuestionDetail(q);
           refreshSidebarTreeStatusIndicators();
         });
       });
 
-      // Print button
       document.getElementById('printBtn').addEventListener('click', () => window.print());
 
-      // Simulate generate (placeholder CTA for pending questions)
       const simBtn = document.getElementById('simulateGenBtn');
       if (simBtn) {
         simBtn.addEventListener('click', () => {
@@ -5358,14 +5189,13 @@
         });
       }
 
-      // If the answer contains Mermaid diagrams, re-run mermaid
       if (!isPending) {
-        // mermaid needs unique IDs per render; give each diagram a unique id
+
         const mermaidDivs = main.querySelectorAll('.mermaid');
         mermaidDivs.forEach((d, i) => {
           d.id = 'mermaid-' + Date.now() + '-' + i;
         });
-        // Initialise if not already
+
         try {
           mermaid.initialize({ startOnLoad: false, theme: document.documentElement.classList.contains('dark') ? 'dark' : 'default', securityLevel: 'loose' });
           mermaid.run({ nodes: mermaidDivs });
@@ -5373,12 +5203,9 @@
       }
     }
 
-    /* =====================================================================
-       NAVIGATION
-       ===================================================================== */
     function navigateTo(view) {
       saveJSON(LS_KEYS.lastView, { view });
-      // Highlight active nav button
+
       document.querySelectorAll('.nav-top').forEach(b => {
         if (b.dataset.view === view) {
           b.classList.add('bg-brand-100','dark:bg-brand-900/40','text-brand-700','dark:text-brand-300');
@@ -5392,10 +5219,9 @@
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    // Bind top-level nav buttons wherever they live (sidebar or inside cards)
     function bindNavTop() {
       document.querySelectorAll('.nav-top').forEach(btn => {
-        // Avoid duplicate listeners by cloning
+
         const newBtn = btn.cloneNode(true);
         btn.replaceWith(newBtn);
       });
@@ -5404,15 +5230,12 @@
       });
     }
 
-    /* =====================================================================
-       SEARCH
-       ===================================================================== */
     function handleSearch(e) {
       currentSearchQuery = e.target.value.trim();
       const countEl = document.getElementById('searchResultsCount');
       if (!currentSearchQuery) {
         countEl.classList.add('hidden');
-        // If we're on the all-questions view, show all; otherwise stay put
+
         const last = loadJSON(LS_KEYS.lastView, { view: 'stats' });
         if (last.view === 'all-questions') renderAllQuestionsView();
         return;
@@ -5427,14 +5250,11 @@
       );
       countEl.textContent = `${matches.length} matches`;
       countEl.classList.remove('hidden');
-      // Jump to the all-questions view, pre-filtered
+
       navigateTo('all-questions');
       renderAllQuestionsView();
     }
 
-    /* =====================================================================
-       SIDEBAR (mobile)
-       ===================================================================== */
     function openSidebar() {
       document.getElementById('sidebar').classList.remove('-translate-x-full');
       document.getElementById('sidebarOverlay').classList.remove('hidden');
@@ -5446,43 +5266,30 @@
       }
     }
 
-    /* =====================================================================
-       REFRESH — re-render the sidebar dot indicators after a status change
-       We rebuild the tree because it's cheap (423 leaf nodes) and bullet-proof.
-       ===================================================================== */
     function refreshSidebarTreeStatusIndicators() {
       const tree = document.getElementById('sidebarTree');
       tree.innerHTML = '';
       buildSidebarTree();
     }
 
-    /* =====================================================================
-       UTILITIES
-       ===================================================================== */
     function escapeHtml(str) {
       const div = document.createElement('div');
       div.textContent = str;
       return div.innerHTML;
     }
 
-    /* =====================================================================
-       INIT
-       ===================================================================== */
     function init() {
-      // Build sidebar accordion
+
       buildSidebarTree();
 
-      // Top-level nav buttons (sidebar)
       bindNavTop();
 
-      // Search
       document.getElementById('globalSearch').addEventListener('input', handleSearch);
 
-      // Dark mode toggle
       document.getElementById('darkModeToggle').addEventListener('click', () => {
         const isDark = document.documentElement.classList.toggle('dark');
         saveJSON(LS_KEYS.theme, isDark ? 'dark' : 'light');
-        // Re-run mermaid with new theme if currently on a question view
+
         const mermaidDivs = document.querySelectorAll('.mermaid');
         if (mermaidDivs.length) {
           try {
@@ -5492,20 +5299,16 @@
         }
       });
 
-      // Mobile sidebar toggle
       document.getElementById('sidebarToggle').addEventListener('click', openSidebar);
       document.getElementById('sidebarOverlay').addEventListener('click', closeSidebar);
 
-      // Exam countdown — tick every second
       renderExamCountdown();
       setInterval(renderExamCountdown, 1000);
 
-      // Default view — stats dashboard
       const last = loadJSON(LS_KEYS.lastView, { view: 'stats' });
       navigateTo(last.view || 'stats');
     }
 
-    // Boot
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', init);
     } else {
