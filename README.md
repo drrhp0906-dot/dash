@@ -12,7 +12,7 @@ MedRev Dashboard transforms a flat 423-question exam bank (sourced from five med
 - Track the next exam with a live ticking countdown
 - Tick off syllabus topics as "quests" completed
 - Tag every question as **To-Do → In Progress → Revised**
-- Read full, viva-ready answers (with Mermaid flowcharts and clinical pearls) for the first batch of questions
+- Read full, viva-ready answers (with Mermaid flowcharts, real medical images, and clinical pearls) for all 423 questions
 - Print or Save-as-PDF any answer card for offline revision
 
 Everything persists in `localStorage` — your progress survives page reloads, browser restarts, and even laptop reboots, with zero backend infrastructure.
@@ -195,15 +195,20 @@ The syllabus topics were extracted from the official university circular (`circu
 
 ## 🩺 Answer Content
 
-The first **10 questions** (Pathology Paper-1: all 7 long essays + first 3 short notes) have **full, viva-ready answers** authored by a senior medical writer. Each answer includes:
+All **423 questions** now have **full, viva-ready answers** authored to match Indian MBBS viva standards (Robbins, Harsh Mohan, Ananthanarayan, Katzung citations). Each answer includes:
 
 - Semantic HTML (`<h3>`, `<p>`, `<ul>`, `<ol>`, `<table>`)
-- Mermaid.js flowcharts where they genuinely aid recall
-- Placeholder diagram images (`https://placehold.co/600x400?text=…`)
+- Mermaid.js flowcharts where they genuinely aid recall (34 answers)
+- **Real medical images** — gross pathology specimens, histology slides, microscopy, clinical photos, and mechanism diagrams embedded directly inside the answer (144 answers)
 - Classification tables with proper borders
 - A "Clinical Pearl" closing section
 
-The remaining 413 questions have their `answer` field set to `"Answer pending generation. Click here to generate."` — see [`CONTRIBUTING.md`](CONTRIBUTING.md) for how to add more answers.
+Image depth by subject:
+- **Pathology** — 37 answers with images (gross specimens, histology slides)
+- **Microbiology** — 69 answers with images (Gram stains, culture plates, clinical photos, life-cycle diagrams)
+- **Pharmacology** — 38 answers with images (mechanism diagrams, receptor sites, clinical photos)
+
+Images are sourced from public medical education repositories (NUS Medicine, NIH/PMC, WebMD, Mayo Clinic, etc.) and re-hosted on a CDN for stable, embeddable URLs.
 
 ---
 
@@ -223,7 +228,7 @@ MIT — see [`LICENSE.md`](LICENSE.md).
 
 - **Question bank** — sourced from past papers of CUSMC, MORMED, MPSMC, PDUMC, SMCGH.
 - **Syllabus** — official university CBME Second MBBS curriculum circular.
-- **Diagrams** — currently placeholder images from `placehold.co`; contributors are encouraged to swap in CC-licensed medical illustrations (see CONTRIBUTING.md).
+- **Diagrams** — Mermaid.js flowcharts (CDN) + 144 real medical images sourced from public medical education repositories and re-hosted on a stable CDN.
 - **Built with** — Tailwind CSS, Mermaid.js, and a lot of coffee.
 
 ---

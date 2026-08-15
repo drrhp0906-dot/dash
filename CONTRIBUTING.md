@@ -38,7 +38,7 @@ git push origin add-answers-pathology-paper2
 
 ## 📚 1. Adding an Answer to a Question
 
-This is the **highest-impact** contribution. 413 of 423 questions currently have `answer: "Answer available. Click here to generate."`. Here's how to replace that placeholder with real content.
+This is the **highest-impact** contribution. 413 of 423 questions currently have `answer: "Answer pending generation. Click here to generate."`. Here's how to replace that placeholder with real content.
 
 ### Step-by-step
 
@@ -52,7 +52,7 @@ This is the **highest-impact** contribution. 413 of 423 questions currently have
      section: "15 Markers (Long Essays / LAQs)",
      marks: 15,
      question: "Define amyloidosis. Classify amyloidosis…",
-     answer: "Answer available. Click here to generate."
+     answer: "Answer pending generation. Click here to generate."
    }
    ```
 
