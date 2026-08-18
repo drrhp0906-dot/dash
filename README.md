@@ -1,18 +1,18 @@
 # MedRev Dashboard 🩺
 
-> A comprehensive, gamified study hub for **Second MBBS** students preparing for **Pathology, Microbiology, and Pharmacology** university exams. Built as a single, dependency-free `index.html` — no build step, no server, no database. Just open and study.
+> A comprehensive, gamified study hub for **Second MBBS** students preparing for **Pathology, Microbiology, and Pharmacology** university exams. Built as a thin `index.html` shell that lazily fetches its question bank as static JSON — no build step, no server, no database. Just open and study.
 
 ---
 
 ## 📌 Project Description
 
-MedRev Dashboard transforms a flat 423-question exam bank (sourced from five medical colleges — CUSMC, MORMED, MPSMC, PDUMC, SMCGH) plus the university's CBME syllabus circular into a fully interactive, gamified revision environment that runs entirely in the browser. The student can:
+MedRev Dashboard transforms a flat 379-question exam bank (sourced from five medical colleges — CUSMC, MORMED, MPSMC, PDUMC, SMCGH) plus the university's CBME syllabus circular into a fully interactive, gamified revision environment that runs entirely in the browser. The student can:
 
-- Search across all 423 questions in real time
+- Search across all 379 questions in real time
 - Track the next exam with a live ticking countdown
 - Tick off syllabus topics as "quests" completed
 - Tag every question as **To-Do → In Progress → Revised**
-- Read full, viva-ready answers (with Mermaid flowcharts, real medical images, and clinical pearls) for all 423 questions
+- Read full, viva-ready answers (with Mermaid flowcharts, real medical images, and clinical pearls) for all 379 questions
 - Print or Save-as-PDF any answer card for offline revision
 
 Everything persists in `localStorage` — your progress survives page reloads, browser restarts, and even laptop reboots, with zero backend infrastructure.
@@ -24,7 +24,7 @@ Everything persists in `localStorage` — your progress survives page reloads, b
 | Feature | Description |
 |---|---|
 | ⏰ **Exam Countdown Timer** | Live Days / Hours / Minutes / Seconds to the next exam. Detects exam-in-progress windows (9:30 AM → 12:30 PM) and displays the right status automatically. |
-| 📚 **423-Question Bank** | Nested accordion sidebar: **Subject → Paper → Marks Section → Question**. Each question card shows marks weight, status pill, and one-click access to the answer. |
+| 📚 **379-Question Bank** | Nested accordion sidebar: **Subject → Paper → Marks Section → Question**. Each question card shows marks weight, status pill, and one-click access to the answer. |
 | 🔍 **Global Search** | Real-time fuzzy search across question text, subject, paper, section, and answer body. Hit-count badge updates live. |
 | 📜 **Syllabus Quest Tracker** | Parsed from the official university CBME syllabus circular. Topics grouped by subject + paper, presented as a quest checklist with an overall completion progress bar. |
 | 📊 **Stats & Revision Dashboard** | Default landing view: overall revision %, subject-wise breakdown (Pathology / Microbiology / Pharmacology), syllabus-quest coverage, and an "Upcoming Exam Focus" banner pointing to the next exam's subject. |
@@ -41,12 +41,19 @@ Everything persists in `localStorage` — your progress survives page reloads, b
 
 - **HTML5** — semantic structure
 - **Tailwind CSS** (via CDN) — utility-first styling, custom brand palette, class-based dark mode
-- **Mermaid.js v10** (via CDN) — diagramming inside answers
+- **Mermaid.js v10** (via CDN) — diagramming inside answers (lazy-rendered via `IntersectionObserver`)
+- **DOMPurify 3** (via CDN) — every answer HTML string is sanitised before mount, no raw `innerHTML` of untrusted content
+- **FlexSearch 0.7** (via CDN, loaded inside a Web Worker) — inverted-index search off the main thread
 - **Vanilla JavaScript** (ES2020+) — no framework, no virtual DOM
-- **localStorage** — sole persistence layer
+- **`fetch()` + static JSON** — question data is decoupled from the app shell, lazy-loaded on first paint, then HTTP-cached
+- **Web Workers** — search runs off the main thread so 379-answer scans never block the UI
+- **`IntersectionObserver`** — Mermaid diagrams and images render only when scrolled into view
+- **`localStorage`** — sole persistence layer
 - **Google Fonts** (Inter, JetBrains Mono) — typography
 
-> Zero build step. Zero `npm install`. Zero backend. Just open `index.html`.
+> Zero build step. Zero `npm install`. Zero backend. Serve the folder over HTTP (or even `file://`) and study.
+>
+> ⚠️ **Note on `file://`**: opening `index.html` directly off the filesystem works in Firefox but Chrome/Safari block `fetch()` and Web Workers under `file://`. Run a tiny local server (see Option B) for full functionality.
 
 ---
 
@@ -54,7 +61,10 @@ Everything persists in `localStorage` — your progress survives page reloads, b
 
 ```
 medrev-dashboard/
-├── index.html              ← the entire dashboard (single-file app)
+├── index.html              ← app shell (UI + logic, ~70 KB)
+├── data/
+│   └── questions.json      ← 379 questions + syllabus (~3 MB, fetched lazily)
+├── search.worker.js        ← FlexSearch inverted-index search worker
 ├── images/                 ← 143 medical images bundled locally
 ├── README.md               ← you are here
 ├── CONTRIBUTING.md         ← how to add answers, improve UI, extend the bank
@@ -95,9 +105,9 @@ Drop the folder onto any static host — GitHub Pages, Netlify, Vercel, Cloudfla
 
 ## 📊 Data Architecture
 
-The dashboard embeds two JavaScript data structures at the top of the `<script>` block in `index.html`:
+The dashboard's question data lives in a **separate static JSON file** (`data/questions.json`) that is fetched on first paint and then HTTP-cached by the browser. The app shell (`index.html`) is a thin ~70 KB file containing only UI + logic — no embedded data. This keeps the initial HTML parse fast and lets you update the question bank without touching the app code.
 
-### `medicalQuestionsData` (423 questions)
+### `medicalQuestionsData` (379 questions)
 
 ```javascript
 const medicalQuestionsData = [
@@ -196,7 +206,7 @@ The syllabus topics were extracted from the official university circular (`circu
 
 ## 🩺 Answer Content
 
-All **423 questions** now have **full, viva-ready answers** authored to match Indian MBBS viva standards (Robbins, Harsh Mohan, Ananthanarayan, Katzung citations). Each answer includes:
+All **379 questions** now have **full, viva-ready answers** authored to match Indian MBBS viva standards (Robbins, Harsh Mohan, Ananthanarayan, Katzung citations). Each answer includes:
 
 - Semantic HTML (`<h3>`, `<p>`, `<ul>`, `<ol>`, `<table>`)
 - Mermaid.js flowcharts where they genuinely aid recall (34 answers)

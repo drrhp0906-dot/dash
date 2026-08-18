@@ -38,7 +38,7 @@ git push origin add-answers-pathology-paper2
 
 ## 📚 1. Adding an Answer to a Question
 
-This is the **highest-impact** contribution. 413 of 423 questions currently have `answer: "Answer pending generation. Click here to generate."`. Here's how to replace that placeholder with real content.
+This is the **highest-impact** contribution. All 379 questions currently have full viva-ready answers, but contributions to improve answer quality, add new questions, or extend coverage to new topics are very welcome. Here's how to add or improve content.
 
 ### Step-by-step
 
@@ -143,7 +143,7 @@ The dashboard is built with **Tailwind CSS (CDN)** — no PostCSS, no build step
 - **Accessibility audit** — keyboard navigation, ARIA labels, screen-reader support
 - **Mobile polish** — the drawer sidebar works but could be smoother
 - **Print stylesheet** — make `Print / Save-as-PDF` output cleaner for revision handouts
-- **Performance** — the 423-question sidebar tree is built on every status change; consider diffing instead of rebuilding
+- **Performance** — the 379-question sidebar tree is built on every status change; consider diffing instead of rebuilding
 - **Animations** — subtle entrance transitions for question cards, progress-bar fill animations
 
 ### Code style
