@@ -1,0 +1,32 @@
+// scripts/build-data.mjs — node scripts/build-data.mjs
+import fs from 'node:fs';
+import path from 'node:path';
+
+const GROUP_DEPTH = 3;   // "q0_0_1_x" → chunk "q0_0_1". Use 2 if chunks feel too small.
+const raw = JSON.parse(fs.readFileSync('answers.json', 'utf8'));
+
+const strip = (h) => h
+  .replace(/<[^>]+>/g, ' ')
+  .replace(/&nbsp;|&amp;|&lt;|&gt;|&quot;|&#39;|&[a-z]+;/g, ' ')
+  .replace(/\s+/g, ' ').trim();
+
+const groups = {};
+for (const [id, html] of Object.entries(raw)) {
+  const g = id.split('_').slice(0, GROUP_DEPTH).join('_');
+  (groups[g] ??= {})[id] = html;
+}
+
+fs.rmSync('data', { recursive: true, force: true });
+fs.mkdirSync(path.join('data', 'answers'), { recursive: true });
+
+const index = [];
+for (const [g, items] of Object.entries(groups)) {
+  fs.writeFileSync(path.join('data', 'answers', `${g}.json`), JSON.stringify(items));
+  for (const [id, html] of Object.entries(items)) {
+    const h3 = [...html.matchAll(/<h[34][^>]*>(.*?)<\/h[34]>/g)].map(m => strip(m[1]));
+    const title = h3.find(t => !/^(definition|clinical pearl)$/i.test(t)) ?? h3[0] ?? id;
+    index.push({ id, g, title, text: strip(html).slice(0, 400) });
+  }
+}
+fs.writeFileSync('data/index.json', JSON.stringify(index));
+console.log(`✓ ${index.length} questions → ${Object.keys(groups).length} chunks`);
