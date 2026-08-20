@@ -12,13 +12,17 @@
  */
 var index = null;
 var docIds = [];
+var groups = [];
 
 self.onmessage = function (e) {
   var msg = e.data;
   if (msg.type === 'index') {
+    groups = msg.groups || [];          // ← NEW
     buildIndex(msg.docs);
   } else if (msg.type === 'search') {
     runSearch(msg.query);
+  } else if (msg.type === 'deep') {     // ← NEW
+    deepSearch(msg.query);
   }
 };
 
@@ -137,4 +141,29 @@ function buildFallbackIndex(docs) {
       });
     }
   };
+}
+
+// streams every answer chunk and substring-matches it. posts progress, then
+// a normal 'results' message so the main thread renders it with existing code.
+function deepSearch(query){
+  var q = query.toLowerCase();
+  var hits = [];
+  var i = 0;
+  self.postMessage({ type: 'deep-progress', done: 0, total: groups.length });
+  (function next(){
+    if (i >= groups.length) {
+      self.postMessage({ type: 'results', ids: hits, query: query, tookMs: 0 });
+      return;
+    }
+    fetch('data/answers/' + groups[i++] + '.json')
+      .then(function(r){ return r.json(); })
+      .then(function(chunk){
+        for (var id in chunk) {
+          if (chunk[id].toLowerCase().indexOf(q) !== -1) hits.push(id);
+        }
+        self.postMessage({ type: 'deep-progress', done: i, total: groups.length });
+        next();
+      })
+      .catch(function(){ next(); });  // skip failed chunk, keep going
+  })();
 }

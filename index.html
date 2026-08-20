@@ -209,51 +209,110 @@
   <script>
 
     // ─── data layer ────────────────────────────────────────────────
-    // questions used to be hardcoded inline (~3MB of HTML strings). they now
-    // live in data/questions.json and are fetched lazily on first paint.
-    // repeat visits hit the browser HTTP cache — typically <50ms.
+    // shell loads two small files upfront:
+    //   data/questions.json — metadata + syllabus only (answers stripped by build script)
+    //   data/index.json     — per-question title + excerpt, seeds the search worker
+    // full answers live in data/answers/<group>.json chunks, fetched on demand.
     var medicalQuestionsData = null;
     var syllabusQuestData = null;
+    var searchIndexData = null;      // [{id, g, title, text}]
+    var searchIndexById = {};        // qid → index entry
+    var searchExcerptById = {};      // qid → lowercase (title+text), fallback search
     var _dataReady = false;
     var _dataPromise = null;
 
     function loadData(){
       if (_dataPromise) return _dataPromise;
-      _dataPromise = fetch('data/questions.json', { cache: 'default' })
-        .then(function(r){
-          if (!r.ok) throw new Error('HTTP '+r.status+' loading questions.json');
+      _dataPromise = Promise.all([
+        fetch('data/questions.json').then(function(r){
+          if (!r.ok) throw new Error('HTTP ' + r.status + ' loading questions.json');
+          return r.json();
+        }),
+        fetch('data/index.json').then(function(r){
+          if (!r.ok) throw new Error('HTTP ' + r.status + ' loading index.json');
           return r.json();
         })
-        .then(function(payload){
-          medicalQuestionsData = payload.questions;
-          syllabusQuestData    = payload.syllabus;
-          _dataReady = true;
-          // build the flat index + seed the search worker
-          buildFlatQuestions();
-          initSearchWorker();
-        })
-        .catch(function(err){
-          console.error('[medrev] data load failed:', err);
-          var main = document.getElementById('mainContent');
-          if (main) {
-            main.innerHTML = '<div class="p-8 text-center text-slate-600 dark:text-slate-300">'
-              + '<div class="text-4xl mb-3">⚠️</div>'
-              + '<p class="font-medium">Could not load question data.</p>'
-              + '<p class="text-sm mt-1 text-slate-500">Check that <code>data/questions.json</code> is present next to <code>index.html</code>.</p>'
-              + '<p class="text-xs mt-2 text-slate-400">' + escapeHtml(err.message) + '</p>'
-              + '</div>';
-          }
-          throw err;
+      ])
+      .then(function(res){
+        medicalQuestionsData = res[0].questions;
+        syllabusQuestData    = res[0].syllabus;
+        searchIndexData      = res[1];
+        searchIndexData.forEach(function(e){
+          searchIndexById[e.id] = e;
+          searchExcerptById[e.id] = (e.title + ' ' + e.text).toLowerCase();
         });
+        _dataReady = true;
+        buildFlatQuestions();
+        initSearchWorker();
+      })
+      .catch(function(err){
+        console.error('[medrev] data load failed:', err);
+        var main = document.getElementById('mainContent');
+        if (main) {
+          main.innerHTML = '<div class="p-8 text-center text-slate-600 dark:text-slate-300">'
+            + '<div class="text-4xl mb-3">⚠️</div>'
+            + '<p class="font-medium">Could not load question data.</p>'
+            + '<p class="text-sm mt-1 text-slate-500">Run <code>node scripts/build-data.mjs</code> and confirm <code>data/</code> is committed.</p>'
+            + '<p class="text-xs mt-2 text-slate-400">' + escapeHtml(err.message) + '</p>'
+            + '</div>';
+        }
+        throw err;
+      });
       return _dataPromise;
     }
 
+    // ─── lazy answer chunks ────────────────────────────────────────
+    // one chunk = every answer for a subject+paper+section, so reading through
+    // a section costs a single fetch; the cache makes revisits instant.
+    var _answerCache = {};     // qid → html ('' if genuinely missing)
+    var _chunkCache = {};      // group → Promise<{qid: html}>
+    var _currentOpenQid = null;
+
+    function answerGroup(qid){
+      return qid.split('_').slice(0, 3).join('_');  // keep in sync with build-data.mjs GROUP_DEPTH
+    }
+
+    function fetchAnswer(qid){
+      if (Object.prototype.hasOwnProperty.call(_answerCache, qid)) {
+        return Promise.resolve(_answerCache[qid]);
+      }
+      var g = answerGroup(qid);
+      if (!_chunkCache[g]) {
+        _chunkCache[g] = fetch('data/answers/' + g + '.json')
+          .then(function(r){
+            if (!r.ok) throw new Error('HTTP ' + r.status + ' loading answers/' + g + '.json');
+            return r.json();
+          })
+          .catch(function(err){
+            console.error('[medrev] answer chunk failed:', err);
+            return {};   // degrade gracefully instead of crashing the view
+          });
+      }
+      return _chunkCache[g].then(function(chunk){
+        _answerCache[qid] = chunk[qid] || '';
+        return _answerCache[qid];
+      });
+    }
+
+    // drop-in replacement for direct openQuestion(q) calls: renders
+    // instantly (skeleton if needed), fetches the chunk, re-renders on arrival.
+    function openQuestion(q){
+      _currentOpenQid = q.id;
+      var cached = _answerCache[q.id];
+      if (cached !== undefined) { q.answer = cached; openQuestion(q); return; }
+      renderQuestionDetail(Object.assign({}, q, {
+        answer: '<p class="italic text-slate-400 dark:text-slate-500">Loading answer…</p>'
+      }));
+      fetchAnswer(q.id).then(function(html){
+        q.answer = html;
+        if (_currentOpenQid === q.id) openQuestion(q);  // user hasn't moved on
+      });
+    }
+
     // ─── search worker ─────────────────────────────────────────────
-    // we delegate search to a Web Worker so 379 * 5KB answer scans don't
-    // block the main thread on low-end mobile. the worker builds a
-    // FlexSearch inverted index on first message, then answers queries.
     var searchWorker = null;
     var searchCallback = null;
+    var _lastSearchHandler = null;   // remembered so Enter can trigger a deep search
 
     function initSearchWorker(){
       if (searchWorker) return;
@@ -263,6 +322,9 @@
           var msg = e.data;
           if (msg.type === 'ready') {
             console.log('[medrev] search worker ready, indexed', msg.count, 'docs');
+          } else if (msg.type === 'deep-progress') {
+            var badge = document.getElementById('searchResultsCount');
+            if (badge) { badge.classList.remove('hidden'); badge.textContent = 'scanning ' + msg.done + '/' + msg.total; }
           } else if (msg.type === 'results') {
             if (searchCallback) {
               searchCallback(msg.ids, msg.query, msg.tookMs);
@@ -272,12 +334,16 @@
         };
         searchWorker.postMessage({
           type: 'index',
+          // groups list lets the worker run deep searches (fetch chunks itself)
+          groups: Array.from(new Set(searchIndexData.map(function(e){ return e.g; }))),
           docs: flatQuestions.map(function(q){
-            return { id: q.id, q: q.question, s: q.subject, p: q.paper, sec: q.section, a: q.answer };
+            var e = searchIndexById[q.id];
+            return { id: q.id, q: q.question, s: q.subject, p: q.paper,
+                     sec: q.section, a: e ? (e.title + ' ' + e.text) : '' };
           })
         });
       } catch(e){
-        console.warn('[medrev] search worker failed to start, falling back to main-thread search:', e);
+        console.warn('[medrev] search worker failed, falling back:', e);
         searchWorker = null;
       }
     }
@@ -286,21 +352,40 @@
       if (!query || !query.trim()) { cb([], query, 0); return; }
       if (searchWorker) {
         searchCallback = cb;
+        _lastSearchHandler = cb;
         searchWorker.postMessage({ type: 'search', query: query });
       } else {
-        // fallback: main-thread linear scan (same as before)
         var q = query.toLowerCase();
         var t0 = performance.now();
         var matches = flatQuestions.filter(function(item){
+          var ex = searchExcerptById[item.id] || '';
           return item.question.toLowerCase().indexOf(q) !== -1
               || item.subject.toLowerCase().indexOf(q) !== -1
               || item.paper.toLowerCase().indexOf(q) !== -1
               || item.section.toLowerCase().indexOf(q) !== -1
-              || item.answer.toLowerCase().indexOf(q) !== -1;
+              || ex.indexOf(q) !== -1;
         });
         cb(matches.map(function(m){ return m.id; }), query, performance.now() - t0);
       }
     }
+
+    // deep search: scans FULL answer bodies chunk-by-chunk inside the worker.
+    function deepSearchAnswers(){
+      var s = document.getElementById('globalSearch');
+      var q = s ? s.value : '';
+      if (!searchWorker || !q || q.trim().length < 3 || !_lastSearchHandler) return;
+      searchCallback = _lastSearchHandler;
+      searchWorker.postMessage({ type: 'deep', query: q });
+    }
+
+    // Enter in the search box = deep search full answers
+    (function(){
+      var s = document.getElementById('globalSearch');
+      if (!s) return;
+      s.addEventListener('keydown', function(e){
+        if (e.key === 'Enter') { e.preventDefault(); deepSearchAnswers(); }
+      });
+    })();
 
     // ─── Intersection Observer for lazy Mermaid + image rendering ──
     // we observe every .mermaid block and every img[data-src] inside the
@@ -734,7 +819,7 @@
                 <span class="mt-0.5 w-1.5 h-1.5 rounded-full shrink-0 ${status === 'Revised' ? 'bg-emerald-500' : status === 'In Progress' ? 'bg-amber-500' : 'bg-slate-300 dark:bg-slate-600'}" aria-hidden="true"></span>
                 <span class="line-clamp-2">${qi+1}. ${escapeHtml(q.question)}</span>`;
               qEl.addEventListener('click', () => {
-                renderQuestionDetail(q);
+                openQuestion(q);
 
                 if (window.innerWidth < 1024) closeSidebar();
               });
@@ -1216,13 +1301,13 @@
         card.addEventListener('click', () => {
           const qid = card.dataset.qid;
           const q = flatQuestions.find(x => x.id === qid);
-          if (q) renderQuestionDetail(q);
+          if (q) openQuestion(q);
         });
       });
       bindNavTop();
     }
 
-    function renderQuestionDetail(q) {
+    function openQuestion(q) {
       const main = document.getElementById('mainContent');
       const status = getQuestionStatus(q.id);
       const isPending = q.answer === "Answer pending generation. Click here to generate.";
@@ -1304,7 +1389,7 @@
       main.querySelectorAll('.status-btn').forEach(btn => {
         btn.addEventListener('click', () => {
           setQuestionStatus(q.id, btn.dataset.status);
-          renderQuestionDetail(q);
+          openQuestion(q);
           refreshSidebarTreeStatusIndicators();
         });
       });
